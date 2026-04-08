@@ -2,7 +2,7 @@
 title: Email Triage Environment
 emoji: 📧
 colorFrom: blue
-colorTo: cyan
+colorTo: purple
 sdk: docker
 sdk_version: "1"
 app_file: streamlit_app.py
