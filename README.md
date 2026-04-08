@@ -1,3 +1,14 @@
+---
+title: Email Triage Environment
+emoji: 📧
+colorFrom: blue
+colorTo: cyan
+sdk: docker
+sdk_version: "1"
+app_file: streamlit_app.py
+pinned: false
+---
+
 # Email Triage Environment (OpenEnv)
 
 ## Project Title & Tagline
