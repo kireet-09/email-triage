@@ -2,8 +2,9 @@
 FastAPI server for email-triage-env.
 Provides REST API for environment interaction.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.models import (
     Action, TaskConfig, Observation, StepResult, ResetResult, ResetRequest, EnvironmentState
 )
@@ -29,11 +30,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware FIRST (before other middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,6 +50,19 @@ def health():
     return {"status": "ok"}
 
 
+@app.options("/reset")
+async def options_reset():
+    """Handle CORS preflight requests for /reset endpoint."""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,HEAD,PUT,PATCH,POST,DELETE",
+            "Access-Control-Allow-Headers": "origin,content-type,accept,authorization",
+        },
+    )
+
+
 @app.post("/reset", tags=["Episode"], response_model=ResetResult)
 def reset(request: ResetRequest):
     """
@@ -58,7 +72,10 @@ def reset(request: ResetRequest):
     
     Response: ResetResult with initial observation and task info
     """
-    return environment.reset(request.task_id)
+    try:
+        return environment.reset(request.task_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/step", tags=["Episode"], response_model=StepResult)
