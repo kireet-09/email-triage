@@ -5,7 +5,7 @@ Provides REST API for environment interaction.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.models import (
-    Action, TaskConfig, Observation, StepResult, ResetResult, EnvironmentState
+    Action, TaskConfig, Observation, StepResult, ResetResult, ResetRequest, EnvironmentState
 )
 from app.environment import EmailTriageEnvironment
 from app.email_data import get_all_emails, get_all_task_configs
@@ -50,7 +50,7 @@ def health():
 
 
 @app.post("/reset", tags=["Episode"], response_model=ResetResult)
-def reset(body: dict):
+def reset(request: ResetRequest):
     """
     Reset environment for a new episode.
     
@@ -58,11 +58,7 @@ def reset(body: dict):
     
     Response: ResetResult with initial observation and task info
     """
-    task_id = body.get("task_id")
-    if not task_id:
-        return {"error": "Missing task_id in request body"}
-    
-    return environment.reset(task_id)
+    return environment.reset(request.task_id)
 
 
 @app.post("/step", tags=["Episode"], response_model=StepResult)

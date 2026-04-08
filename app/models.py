@@ -98,6 +98,11 @@ class StepResult(BaseModel):
     info: dict = Field(default_factory=dict, description="Additional info (email_id, action details, etc.)")
 
 
+class ResetRequest(BaseModel):
+    """Request to reset the environment."""
+    task_id: str = Field(..., description="Task ID: easy_triage, medium_categorize, or hard_respond")
+
+
 class ResetResult(BaseModel):
     """Result of environment.reset()."""
     observation: Observation = Field(..., description="Initial observation for episode")
