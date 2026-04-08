@@ -64,16 +64,19 @@ async def options_reset():
 
 
 @app.post("/reset")
-async def reset(request: ResetRequest):
+async def reset(task_id: str = "easy_triage"):
     """
     Reset environment for a new episode.
     
-    Request body: {"task_id": "easy_triage" | "medium_categorize" | "hard_respond"}
+    Accepts task_id either as:
+    - Query parameter: ?task_id=easy_triage
+    - JSON body: {"task_id": "easy_triage"}
     
+    Valid task_ids: "easy_triage", "medium_categorize", "hard_respond"
     Response: ResetResult with initial observation and task info
     """
     try:
-        result = environment.reset(request.task_id)
+        result = environment.reset(task_id)
         # Convert Pydantic models to JSON-serializable dicts
         obs_dict = result.observation.model_dump() if hasattr(result.observation, 'model_dump') else result.observation
         return JSONResponse(
