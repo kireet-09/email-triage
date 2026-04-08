@@ -1,0 +1,176 @@
+name: email-triage-env
+version: 1.0.0
+description: >
+  OpenEnv environment for email triage and response task. Simulates a knowledge worker's inbox
+  where an AI agent receives business emails and must assign priority, route to department,
+  and draft responses for critical emails.
+author: OpenEnv
+tags:
+  - openenv
+  - email
+  - triage
+  - decision-making
+  - nlp
+
+tasks:
+  - id: easy_triage
+    name: "Easy: Priority Triage"
+    difficulty: easy
+    description: >
+      Assign HIGH/MEDIUM/LOW priority to 5 urgent emails. 
+      No categorization required. Agent must evaluate email urgency and business impact.
+    email_count: 5
+    max_steps: 10
+    reward_threshold: 0.7
+    scoring: >
+      Per-email: 1.0 (correct), 0.5 (MEDIUM on HIGH/LOW), 0.0 (wrong direction).
+      Final score = mean over all 5 emails.
+  
+  - id: medium_categorize
+    name: "Medium: Priority + Category"
+    difficulty: medium
+    description: >
+      Assign priority AND category to 8 emails from mixed departments.
+      Categories: Support, Sales, HR, Legal, Finance, Spam.
+    email_count: 8
+    max_steps: 20
+    reward_threshold: 0.65
+    scoring: >
+      Per-email: 0.4×priority_score + 0.6×category_score.
+      Priority: 1.0 correct, 0.2 partial, 0.0 wrong.
+      Category: 1.0 correct, 0.0 wrong.
+      Final score = mean over all 8 emails.
+  
+  - id: hard_respond
+    name: "Hard: Priority + Category + Responses"
+    difficulty: hard
+    description: >
+      Assign priority, category, and draft responses for 10 emails.
+      For critical (HIGH+needs_response) emails, provide substantive 40-80 word response drafts.
+    email_count: 10
+    max_steps: 30
+    reward_threshold: 0.55
+    scoring: >
+      Per-email depends on type:
+      - If HIGH+needs_response: 0.30×priority + 0.30×category + 0.40×response_quality
+      - Else: 0.50×priority + 0.50×category
+      Response quality = keyword_coverage×0.85 + length_bonus.
+      Final score = weighted mean over all 10 emails.
+
+observation_space:
+  fields:
+    - name: inbox
+      type: List[Email]
+      description: "Unprocessed emails remaining in current task"
+    - name: processed
+      type: List[ProcessedEmail]
+      description: "Already-processed emails with assigned values and rewards"
+    - name: current_step
+      type: int
+      description: "Current step number (0-indexed)"
+    - name: task_id
+      type: str
+      description: "Current task ID (easy_triage, medium_categorize, hard_respond)"
+    - name: instructions
+      type: str
+      description: "Task-specific instructions for agent"
+    - name: remaining_emails
+      type: int
+      description: "Number of unprocessed emails remaining"
+
+action_space:
+  fields:
+    - name: action_type
+      type: str
+      enum: ["triage", "categorize", "triage_and_respond", "skip"]
+      description: "Type of action to perform"
+    - name: email_id
+      type: str
+      description: "ID of email being processed"
+    - name: priority
+      type: Optional[str]
+      enum: ["HIGH", "MEDIUM", "LOW"]
+      description: "Assigned priority level (required for triage/categorize/triage_and_respond)"
+    - name: category
+      type: Optional[str]
+      enum: ["Support", "Sales", "HR", "Legal", "Finance", "Spam"]
+      description: "Assigned department/category (required for categorize/triage_and_respond)"
+    - name: response_draft
+      type: Optional[str]
+      description: "Draft response text (required for triage_and_respond on HIGH emails)"
+
+reward_function:
+  situations:
+    - condition: "Correct priority (easy task)"
+      reward: 1.0
+    - condition: "Correct priority and category (medium task)"
+      reward: 1.0
+    - condition: "Partial priority: MEDIUM on HIGH/LOW (easy)"
+      reward: 0.5
+    - condition: "Partial priority: MEDIUM on HIGH/LOW (medium/hard)"
+      reward: 0.2
+    - condition: "Wrong direction: HIGH↔LOW"
+      reward: 0.0
+    - condition: "Correct category"
+      reward: included_in_weighted_score
+    - condition: "Wrong category"
+      reward: 0.0
+    - condition: "Excellent response (keywords + length)"
+      reward: up_to_0.5_bonus
+    - condition: "Invalid email_id"
+      penalty: -0.1
+    - condition: "Duplicate processing"
+      penalty: -0.05
+    - condition: "Skip action"
+      penalty: -0.05
+    - condition: "Missing required field"
+      penalty: -0.1_to_-0.15
+  clamping: "All step rewards clamped to [-0.5, max]. All episode scores to [0.0, 1.0]"
+
+api_endpoints:
+  - path: /reset
+    method: POST
+    description: "Reset environment for new episode"
+    request: "{\"task_id\": \"easy_triage\" | \"medium_categorize\" | \"hard_respond\"}"
+    response: "ResetResult {observation, info}"
+  
+  - path: /step
+    method: POST
+    description: "Execute one step, process an email"
+    request: "Action {action_type, email_id, priority, category, response_draft}"
+    response: "StepResult {observation, reward, done, info}"
+  
+  - path: /state
+    method: GET
+    description: "Get complete environment state snapshot"
+    response: "EnvironmentState {task_id, current_step, max_steps, done, emails_total, emails_processed, cumulative_reward, processed, episode_score}"
+  
+  - path: /tasks
+    method: GET
+    description: "List all 3 available tasks with metadata"
+    response: "List[TaskConfig]"
+  
+  - path: /health
+    method: GET
+    description: "Health check"
+    response: "{\"status\": \"ok\"}"
+  
+  - path: /grade
+    method: POST
+    description: "Grade task performance on processed emails"
+    request: "{\"task_id\": str, \"processed\": List[ProcessedEmail]}"
+    response: "{\"score\": float, \"details\": dict}"
+
+baseline_scores:
+  easy_triage:
+    random_agent: 0.33
+    heuristic_agent: 0.75
+    llm_agent: 0.88
+  medium_categorize:
+    random_agent: 0.28
+    heuristic_agent: 0.65
+    llm_agent: 0.81
+  hard_respond:
+    random_agent: 0.20
+    heuristic_agent: 0.58
+    llm_agent: 0.76
