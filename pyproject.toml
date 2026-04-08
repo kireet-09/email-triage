@@ -7,13 +7,14 @@ name = "email-triage-env"
 version = "1.0.0"
 description = "Email Triage Environment: An OpenEnv reinforcement learning environment for email classification and response tasks"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "OpenEnv", email = "contact@openenv.com"}
 ]
 keywords = ["reinforcement-learning", "environment", "email", "nlp", "openai"]
 dependencies = [
+    "openenv-core>=0.2.0",
     "fastapi==0.111.0",
     "uvicorn[standard]==0.30.0",
     "pydantic==2.7.0",
@@ -32,7 +33,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -60,10 +60,11 @@ ui = [
 ]
 
 [project.scripts]
+server = "server.app:app"
 email-triage-server = "app.main:app"
 
 [tool.setuptools]
-packages = ["app", "tests"]
+packages = ["app", "server", "tests"]
 
 [tool.setuptools.package-data]
 app = ["*.py"]
