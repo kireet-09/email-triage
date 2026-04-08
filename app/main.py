@@ -63,8 +63,8 @@ async def options_reset():
     )
 
 
-@app.post("/reset", tags=["Episode"], response_model=ResetResult)
-def reset(request: ResetRequest):
+@app.post("/reset")
+async def reset(request: ResetRequest):
     """
     Reset environment for a new episode.
     
@@ -73,9 +73,26 @@ def reset(request: ResetRequest):
     Response: ResetResult with initial observation and task info
     """
     try:
-        return environment.reset(request.task_id)
+        result = environment.reset(request.task_id)
+        # Convert Pydantic models to JSON-serializable dicts
+        obs_dict = result.observation.model_dump() if hasattr(result.observation, 'model_dump') else result.observation
+        return JSONResponse(
+            status_code=200,
+            content={
+                "observation": obs_dict,
+                "info": result.info,
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Content-Type": "application/json",
+            }
+        )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return JSONResponse(
+            status_code=400,
+            content={"error": str(e)},
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
 
 
 @app.post("/step", tags=["Episode"], response_model=StepResult)
